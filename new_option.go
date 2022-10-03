@@ -18,7 +18,5 @@ type (
 )
 
 func defaultNewOptions() *newOptions {
-	return &newOptions{
-		iv: []byte(`UI8wC9fW6cFh9SOS`),
-	}
+	return &newOptions{}
 }

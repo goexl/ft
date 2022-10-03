@@ -125,7 +125,7 @@ func (c *Client) post(api string, req *resty.Request, rsp any, _options *options
 }
 
 //go:inline
-func (c *Client) decrypt(raw []byte, _rsp any, _options *newOptions) (err error) {
+func (c *Client) decrypt(raw []byte, _rsp any, _options *options) (err error) {
 	__rsp := new(rsp)
 	if err = json.Unmarshal(raw, __rsp); nil != err {
 		return
