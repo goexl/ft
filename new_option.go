@@ -12,10 +12,13 @@ type (
 
 	newOptions struct {
 		http   *resty.Client
+		iv     []byte
 		logger simaqian.Logger
 	}
 )
 
 func defaultNewOptions() *newOptions {
-	return new(newOptions)
+	return &newOptions{
+		iv: []byte(`UI8wC9fW6cFh9SOS`),
+	}
 }
