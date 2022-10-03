@@ -153,7 +153,7 @@ func (c *Client) decrypt(raw []byte, _rsp any, _options *options) (err error) {
 		decrypter.CryptBlocks(decrypted, decrypted)
 		pkcs7 := padding.NewPKCS7Padding(sm4.BlockSize)
 		decrypted, _ = pkcs7.Unpad(decrypted)
-		b.Decrypt(decrypted, decoded)
+		// b.Decrypt(decrypted, decoded)
 		// decrypted, err = sm4.Sm4Cbc(decryptedKey, decoded, false)
 	}
 	if nil != err {
