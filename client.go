@@ -1,6 +1,7 @@
 package ft
 
 import (
+	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/tls"
 	"encoding/base64"
@@ -9,13 +10,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/emmansun/gmsm/sm2"
 	"github.com/go-resty/resty/v2"
 	"github.com/goexl/gox"
 	"github.com/goexl/gox/field"
 	"github.com/goexl/simaqian"
-	"github.com/tjfoc/gmsm/sm2"
-	"github.com/tjfoc/gmsm/sm4"
-	"github.com/tjfoc/gmsm/x509"
 )
 
 var _ = New
@@ -53,8 +52,7 @@ func New(opts ...newOption) (client *Client, err error) {
 	if client.key, err = sm2.GenerateKey(rand.Reader); nil != err {
 		return
 	}
-	client.publicHex = strings.ToUpper(x509.WritePublicKeyToHex(&client.key.PublicKey))
-	err = sm4.SetIV(_options.iv)
+	client.publicHex = client.keyToHex(&client.key.PublicKey)
 
 	return
 }
@@ -135,7 +133,8 @@ func (c *Client) decrypt(raw []byte, _rsp any, _options *options) (err error) {
 	if keyBytes, ke := hex.DecodeString(__rsp.Key); nil != ke {
 		err = ke
 	} else {
-		decryptedKey, err = sm2.Decrypt(c.key, keyBytes, sm2.C1C2C3)
+		// decryptedKey, err = sm2.Decrypt(c.key, keyBytes, sm2.C1C2C3)
+		decryptedKey, err = c.key.Decrypt(rand.Reader, keyBytes, sm2.NewPlainDecrypterOpts(sm2.C1C2C3))
 	}
 	if nil != err {
 		return
@@ -145,7 +144,8 @@ func (c *Client) decrypt(raw []byte, _rsp any, _options *options) (err error) {
 	if decoded, de := base64.StdEncoding.DecodeString(__rsp.Data); nil != de {
 		err = de
 	} else {
-		decrypted, err = sm4.Sm4Cbc(decryptedKey, decoded, false)
+		// decrypted, err = sm4.Sm4Cbc(decryptedKey, decoded, false)
+		fmt.Println(decoded, decryptedKey)
 	}
 	if nil != err {
 		return
@@ -158,4 +158,35 @@ func (c *Client) decrypt(raw []byte, _rsp any, _options *options) (err error) {
 	}
 
 	return
+}
+
+func (c *Client) keyToHex(key *ecdsa.PublicKey) string {
+	x := key.X.Bytes()
+	y := key.Y.Bytes()
+	if n := len(x); n < 32 {
+		x = append(c.zeroByteSlice()[:32-n], x...)
+	}
+	if n := len(y); n < 32 {
+		y = append(c.zeroByteSlice()[:32-n], y...)
+	}
+
+	var bytes []byte
+	bytes = append(bytes, x...)
+	bytes = append(bytes, y...)
+	bytes = append([]byte{0x04}, bytes...)
+
+	return strings.ToUpper(hex.EncodeToString(bytes))
+}
+
+func (c *Client) zeroByteSlice() []byte {
+	return []byte{
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+	}
 }
