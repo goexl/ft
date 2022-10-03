@@ -142,29 +142,39 @@ func (c *Client) decrypt(raw []byte, _rsp any, _options *options) (err error) {
 		return
 	}
 
-	var decrypted []byte
-	if decoded, de := base64.StdEncoding.DecodeString(__rsp.Data); nil != de {
+	if decrypted, ce := c.cbcDecrypt(__rsp.Data, decryptedKey, _options); nil != ce {
+		err = ce
+	} else {
+		fmt.Println(decrypted)
+	}
+
+	/*if decoded, de := hex.DecodeString(string(decrypted)); nil != de {
+		err = de
+	} else {
+		err = json.Unmarshal(decoded, _rsp)
+	}*/
+
+	return
+}
+
+func (c *Client) cbcDecrypt(raw string, key []byte, _options *options) (decrypted []byte, err error) {
+	var block cipher.Block
+	if decoded, de := base64.StdEncoding.DecodeString(raw); nil != de {
 		err = de
 	} else {
 		decrypted = make([]byte, len(decoded))
-		b, _ := sm4.NewCipher(decryptedKey)
-		decrypter := cipher.NewCBCDecrypter(b, _options.iv)
 		copy(decrypted, decoded)
-		decrypter.CryptBlocks(decrypted, decrypted)
-		pkcs7 := padding.NewPKCS7Padding(sm4.BlockSize)
-		decrypted, _ = pkcs7.Unpad(decrypted)
-		// b.Decrypt(decrypted, decoded)
-		// decrypted, err = sm4.Sm4Cbc(decryptedKey, decoded, false)
+		block, err = sm4.NewCipher(key)
+
 	}
 	if nil != err {
 		return
 	}
 
-	if decoded, de := hex.DecodeString(string(decrypted)); nil != de {
-		err = de
-	} else {
-		err = json.Unmarshal(decoded, _rsp)
-	}
+	cbc := cipher.NewCBCDecrypter(block, _options.iv)
+	cbc.CryptBlocks(decrypted, decrypted)
+	_padding := padding.NewPKCS7Padding(sm4.BlockSize)
+	decrypted, _ = _padding.Unpad(decrypted)
 
 	return
 }
