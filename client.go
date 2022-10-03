@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/emmansun/gmsm/sm2"
+	"github.com/emmansun/gmsm/sm4"
 	"github.com/go-resty/resty/v2"
 	"github.com/goexl/gox"
 	"github.com/goexl/gox/field"
@@ -133,7 +134,6 @@ func (c *Client) decrypt(raw []byte, _rsp any, _options *options) (err error) {
 	if keyBytes, ke := hex.DecodeString(__rsp.Key); nil != ke {
 		err = ke
 	} else {
-		// decryptedKey, err = sm2.Decrypt(c.key, keyBytes, sm2.C1C2C3)
 		decryptedKey, err = c.key.Decrypt(rand.Reader, keyBytes, sm2.NewPlainDecrypterOpts(sm2.C1C2C3))
 	}
 	if nil != err {
@@ -144,8 +144,9 @@ func (c *Client) decrypt(raw []byte, _rsp any, _options *options) (err error) {
 	if decoded, de := base64.StdEncoding.DecodeString(__rsp.Data); nil != de {
 		err = de
 	} else {
+		b, _ := sm4.NewCipher(decryptedKey)
+		b.Decrypt(decrypted, decoded)
 		// decrypted, err = sm4.Sm4Cbc(decryptedKey, decoded, false)
-		fmt.Println(decoded, decryptedKey)
 	}
 	if nil != err {
 		return
