@@ -142,17 +142,16 @@ func (c *Client) decrypt(raw []byte, _rsp any, _options *options) (err error) {
 		return
 	}
 
+	var data []byte
 	if decrypted, ce := c.cbcDecrypt(__rsp.Data, decryptedKey, _options); nil != ce {
 		err = ce
 	} else {
-		fmt.Println(decrypted)
+		data, err = hex.DecodeString(string(decrypted))
 	}
 
-	/*if decoded, de := hex.DecodeString(string(decrypted)); nil != de {
-		err = de
-	} else {
-		err = json.Unmarshal(decoded, _rsp)
-	}*/
+	if nil == err {
+		err = json.Unmarshal(data, _rsp)
+	}
 
 	return
 }
@@ -165,7 +164,6 @@ func (c *Client) cbcDecrypt(raw string, key []byte, _options *options) (decrypte
 		decrypted = make([]byte, len(decoded))
 		copy(decrypted, decoded)
 		block, err = sm4.NewCipher(key)
-
 	}
 	if nil != err {
 		return
