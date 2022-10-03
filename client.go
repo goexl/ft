@@ -1,6 +1,7 @@
 package ft
 
 import (
+	"crypto/cipher"
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/tls"
@@ -10,6 +11,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/emmansun/gmsm/padding"
 	"github.com/emmansun/gmsm/sm2"
 	"github.com/emmansun/gmsm/sm4"
 	"github.com/go-resty/resty/v2"
@@ -123,7 +125,7 @@ func (c *Client) post(api string, req *resty.Request, rsp any, _options *options
 }
 
 //go:inline
-func (c *Client) decrypt(raw []byte, _rsp any, _options *options) (err error) {
+func (c *Client) decrypt(raw []byte, _rsp any, _options *newOptions) (err error) {
 	__rsp := new(rsp)
 	if err = json.Unmarshal(raw, __rsp); nil != err {
 		return
@@ -144,7 +146,13 @@ func (c *Client) decrypt(raw []byte, _rsp any, _options *options) (err error) {
 	if decoded, de := base64.StdEncoding.DecodeString(__rsp.Data); nil != de {
 		err = de
 	} else {
+		decrypted = make([]byte, len(decoded))
 		b, _ := sm4.NewCipher(decryptedKey)
+		decrypter := cipher.NewCBCDecrypter(b, _options.iv)
+		copy(decrypted, decoded)
+		decrypter.CryptBlocks(decrypted, decrypted)
+		pkcs7 := padding.NewPKCS7Padding(sm4.BlockSize)
+		decrypted, _ = pkcs7.Unpad(decrypted)
 		b.Decrypt(decrypted, decoded)
 		// decrypted, err = sm4.Sm4Cbc(decryptedKey, decoded, false)
 	}
