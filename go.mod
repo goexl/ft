@@ -9,7 +9,6 @@ require (
 	github.com/goexl/simaqian v0.1.3
 	github.com/storezhang/cli v0.0.0-20221001141847-fc17c4311dd0
 	github.com/tjfoc/gmsm v1.4.1
-	golang.org/x/text v0.3.7
 )
 
 require (
