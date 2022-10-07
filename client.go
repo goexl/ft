@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/emmansun/gmsm/padding"
 	"github.com/emmansun/gmsm/sm2"
@@ -28,26 +29,29 @@ type Client struct {
 	key       *sm2.PrivateKey
 	publicHex string
 	logger    simaqian.Logger
+
+	options *newOptions
+	tokens  sync.Map
 }
 
 // New 创建客户端
 func New(opts ...newOption) (client *Client, err error) {
-	_options := defaultNewOptions()
+	client.options = defaultNewOptions()
 	for _, opt := range opts {
-		opt.applyNew(_options)
+		opt.applyNew(client.options)
 	}
 
 	client = new(Client)
-	if nil != _options.http {
-		client.http = _options.http
+	if nil != client.options.http {
+		client.http = client.options.http
 	} else {
 		client.http = resty.New()
 	}
 	// 不验证证书有效性
 	client.http.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 
-	if nil != _options.logger {
-		client.logger = _options.logger
+	if nil != client.options.logger {
+		client.logger = client.options.logger
 	} else {
 		client.logger = simaqian.Must()
 	}
@@ -64,6 +68,10 @@ func New(opts ...newOption) (client *Client, err error) {
 func (c *Client) request(api string, _req any, rsp any, opts ...option) (err error) {
 	fr := new(req)
 	fr.PublicKey = c.publicHex
+	_options := apply(opts...)
+	if _options.token {
+		c.Token()
+	}
 
 	// 加密请求
 	// var encrypted []byte
@@ -72,7 +80,7 @@ func (c *Client) request(api string, _req any, rsp any, opts ...option) (err err
 	} else {
 		// so := sm2.NewPlainEncrypterOpts(sm2.MarshalUncompressed, sm2.C1C2C3)
 		// encrypted, err = sm2.Encrypt(rand.Reader, &c.key.PublicKey, bytes, so)
-		fr.Data = string(bytes)
+		fr.Data = bytes
 	}
 	if nil != err {
 		return
@@ -80,7 +88,6 @@ func (c *Client) request(api string, _req any, rsp any, opts ...option) (err err
 
 	hr := c.http.R()
 	hr.SetBody(fr)
-	_options := apply(opts...)
 	err = c.post(api, hr, rsp, _options)
 
 	return
