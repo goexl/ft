@@ -1,9 +1,5 @@
 package ft
 
-import (
-	"github.com/goexl/simaqian"
-)
-
 type (
 	option interface {
 		apply(options *options)
@@ -15,9 +11,6 @@ type (
 		id     string
 		key    string
 		secret string
-		iv     []byte
-
-		logger simaqian.Logger
 	}
 )
 
@@ -34,6 +27,5 @@ func apply(opts ...option) (_options *options) {
 func defaultOptions() *options {
 	return &options{
 		host: `https://202.61.91.57:8092`,
-		iv:   []byte(`UI8wC9fW6cFh9SOS`),
 	}
 }

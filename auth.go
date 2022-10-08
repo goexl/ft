@@ -1,31 +1,86 @@
 package ft
 
 import (
+	"encoding/json"
 	"time"
+
+	"github.com/goexl/gox"
 )
 
-func (c *Client) PublicKey(req *PublicKeyReq, opts ...option) (rsp *PublicKeyRsp, err error) {
-	rsp = new(PublicKeyRsp)
-	err = c.request(`/api/publicKey`, req, rsp, opts...)
+func (c *Client) PublicKey(opts ...option) (key string, err error) {
+	_options := apply(opts...)
+	if cached, ok := c.keys[_options.id]; ok {
+		key = cached
+	}
+	if `` != key {
+		return
+	}
 
-	return
-}
+	_req := new(publicKeyReq)
+	_req.AppId = _options.id
+	_req.PublicKey = c.publicHex
 
-func (c *Client) Token(req *TokenReq, opts ...option) (rsp *TokenRsp, err error) {
-	c.tokens.
-	if nil != c.token && c.token.Expires.Before(time.Now()) {
-		rsp = c.token
+	if bytes, je := json.Marshal(_req); nil != je {
+		err = je
 	} else {
-		rsp, err = c.token(req, opts...)
+		_req.Data = string(bytes)
+	}
+	if nil != err {
+		return
+	}
+
+	_rsp := new(publicKeyRsp)
+	hr := c.options.http.R()
+	hr.SetBody(_req)
+	if err = c.post(`/api/publicKey`, hr, _rsp, _options); nil == err {
+		c.keys[_options.id] = _rsp.Key
+		key = _rsp.Key
 	}
 
 	return
 }
 
-func (c *Client) token(req *TokenReq, opts ...option) (rsp *TokenRsp, err error) {
-	rsp = new(TokenRsp)
-	if err = c.request(`/api/getToken`, req, rsp, opts...); nil == err {
-		c.token = rsp
+func (c *Client) Token(opts ...option) (token string, err error) {
+	_options := apply(opts...)
+	if cached, ok := c.tokens[_options.id]; ok && cached.Expires.After(time.Now()) {
+		token = cached.Token
+	}
+	if `` != token {
+		return
+	}
+
+	_req := new(tokenReq)
+	_req.AppId = _options.id
+	_req.AppKey = _options.key
+	_req.AppSecret = _options.secret
+	_req.PublicKey = c.publicHex
+
+	// 随机生成加密密钥
+	key := gox.RandString(16)
+	if pk, pe := c.PublicKey(opts...); nil != pe {
+		err = pe
+	} else {
+		_req.Key, err = c.encrypt(pk, key)
+	}
+	if nil != err {
+		return
+	}
+
+	if bytes, je := json.Marshal(_req); nil != je {
+		err = je
+	} else {
+		_req.Data, err = c.cbcEncrypt(bytes, key)
+		_req.Signature, err = c.sign(bytes)
+	}
+	if nil != err {
+		return
+	}
+
+	_rsp := new(tokenRsp)
+	hr := c.options.http.R()
+	hr.SetBody(_req)
+	if err = c.post(`/api/getToken`, hr, _rsp, _options); nil == err {
+		c.tokens[_options.id] = _rsp
 	}
 
 	return

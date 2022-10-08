@@ -9,57 +9,46 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"strings"
-	"sync"
 
-	"github.com/emmansun/gmsm/padding"
 	"github.com/emmansun/gmsm/sm2"
+	"github.com/emmansun/gmsm/sm3"
 	"github.com/emmansun/gmsm/sm4"
 	"github.com/go-resty/resty/v2"
+	"github.com/goexl/exc"
 	"github.com/goexl/gox"
 	"github.com/goexl/gox/field"
-	"github.com/goexl/simaqian"
 )
 
 var _ = New
 
 // Client 客户端
 type Client struct {
-	http      *resty.Client
 	key       *sm2.PrivateKey
 	publicHex string
-	logger    simaqian.Logger
 
 	options *newOptions
-	tokens  sync.Map
+	tokens  map[string]*tokenRsp
+	keys    map[string]string
 }
 
 // New 创建客户端
 func New(opts ...newOption) (client *Client, err error) {
+	client = new(Client)
+	client.tokens = make(map[string]*tokenRsp)
+	client.keys = make(map[string]string)
 	client.options = defaultNewOptions()
 	for _, opt := range opts {
 		opt.applyNew(client.options)
 	}
 
-	client = new(Client)
-	if nil != client.options.http {
-		client.http = client.options.http
-	} else {
-		client.http = resty.New()
-	}
 	// 不验证证书有效性
-	client.http.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	client.options.http.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 
-	if nil != client.options.logger {
-		client.logger = client.options.logger
-	} else {
-		client.logger = simaqian.Must()
+	if client.key, err = sm2.GenerateKey(rand.Reader); nil == err {
+		client.publicHex = client.publicKeyToHex()
 	}
-
-	if client.key, err = sm2.GenerateKey(rand.Reader); nil != err {
-		return
-	}
-	client.publicHex = client.keyToHex(&client.key.PublicKey)
 
 	return
 }
@@ -69,9 +58,6 @@ func (c *Client) request(api string, _req any, rsp any, opts ...option) (err err
 	fr := new(req)
 	fr.PublicKey = c.publicHex
 	_options := apply(opts...)
-	if _options.token {
-		c.Token()
-	}
 
 	// 加密请求
 	// var encrypted []byte
@@ -80,13 +66,13 @@ func (c *Client) request(api string, _req any, rsp any, opts ...option) (err err
 	} else {
 		// so := sm2.NewPlainEncrypterOpts(sm2.MarshalUncompressed, sm2.C1C2C3)
 		// encrypted, err = sm2.Encrypt(rand.Reader, &c.key.PublicKey, bytes, so)
-		fr.Data = bytes
+		fr.Data = string(bytes)
 	}
 	if nil != err {
 		return
 	}
 
-	hr := c.http.R()
+	hr := c.options.http.R()
 	hr.SetBody(fr)
 	err = c.post(api, hr, rsp, _options)
 
@@ -96,7 +82,7 @@ func (c *Client) request(api string, _req any, rsp any, opts ...option) (err err
 //go:inline
 func (c *Client) sendfile(api string, file string, req any, rsp any, opts ...option) (err error) {
 	_options := apply(opts...)
-	hr := c.http.R()
+	hr := c.options.http.R()
 	if form, formErr := gox.StructToForm(req); nil != formErr {
 		err = formErr
 	} else {
@@ -121,18 +107,32 @@ func (c *Client) sendfile(api string, file string, req any, rsp any, opts ...opt
 func (c *Client) post(api string, req *resty.Request, rsp any, _options *options) (err error) {
 	if raw, reqErr := req.Post(fmt.Sprintf(`%s%s`, _options.host, api)); nil != reqErr {
 		err = reqErr
-		c.logger.Error(`发送到省大数据中心出错`, field.String(`api`, api), field.Error(err))
+		c.options.logger.Error(`发送到省大数据中心出错`, field.String(`api`, api), field.Error(err))
 	} else if raw.IsError() {
-		c.logger.Warn(`发送到省大数据中心出错`, field.String(`api`, api), field.String(`raw`, raw.String()))
+		c.options.logger.Warn(`发送到省大数据中心出错`, field.String(`api`, api), field.String(`raw`, raw.String()))
 	} else {
-		err = c.decrypt(raw.Body(), rsp, _options)
+		err = c.decrypt(raw.Body(), rsp)
 	}
 
 	return
 }
 
 //go:inline
-func (c *Client) decrypt(raw []byte, _rsp any, _options *options) (err error) {
+func (c *Client) sign(data []byte) (sign string, err error) {
+	sm := sm3.New()
+	sm.Write(data)
+	hash := sm.Sum(nil)
+	if _sign, se := c.key.Sign(rand.Reader, hash, nil); nil != se {
+		err = se
+	} else {
+		sign = string(_sign)
+	}
+
+	return
+}
+
+//go:inline
+func (c *Client) decrypt(raw []byte, _rsp any) (err error) {
 	__rsp := new(rsp)
 	if err = json.Unmarshal(raw, __rsp); nil != err {
 		return
@@ -149,21 +149,33 @@ func (c *Client) decrypt(raw []byte, _rsp any, _options *options) (err error) {
 		return
 	}
 
-	var data []byte
-	if decrypted, ce := c.cbcDecrypt(__rsp.Data, decryptedKey, _options); nil != ce {
+	if decrypted, ce := c.cbcDecrypt(__rsp.Data, decryptedKey); nil != ce {
 		err = ce
 	} else {
-		data, err = hex.DecodeString(string(decrypted))
-	}
-
-	if nil == err {
-		err = json.Unmarshal(data, _rsp)
+		err = json.Unmarshal(decrypted, _rsp)
 	}
 
 	return
 }
 
-func (c *Client) cbcDecrypt(raw string, key []byte, _options *options) (decrypted []byte, err error) {
+//go:inline
+func (c *Client) encrypt(key string, data string) (encrypted string, err error) {
+	var _encrypted []byte
+	if pk, pe := c.hexToPublicKey(key); nil != pe {
+		err = pe
+	} else {
+		opts := sm2.NewPlainEncrypterOpts(sm2.MarshalUncompressed, sm2.C1C2C3)
+		_encrypted, err = sm2.Encrypt(rand.Reader, pk, []byte(data), opts)
+	}
+	if nil == err {
+		encrypted = string(_encrypted)
+	}
+
+	return
+}
+
+//go:inline
+func (c *Client) cbcDecrypt(raw string, key []byte) (decrypted []byte, err error) {
 	var block cipher.Block
 	if decoded, de := base64.StdEncoding.DecodeString(raw); nil != de {
 		err = de
@@ -176,15 +188,42 @@ func (c *Client) cbcDecrypt(raw string, key []byte, _options *options) (decrypte
 		return
 	}
 
-	cbc := cipher.NewCBCDecrypter(block, _options.iv)
+	cbc := cipher.NewCBCDecrypter(block, c.options.iv)
 	cbc.CryptBlocks(decrypted, decrypted)
-	_padding := padding.NewPKCS7Padding(sm4.BlockSize)
-	decrypted, _ = _padding.Unpad(decrypted)
+
+	pkcs := newPkcs5(sm4.BlockSize)
+	decrypted, err = pkcs.Unpad(decrypted)
 
 	return
 }
 
-func (c *Client) keyToHex(key *ecdsa.PublicKey) string {
+//go:inline
+func (c *Client) cbcEncrypt(raw []byte, key string) (encrypted string, err error) {
+	if block, be := sm4.NewCipher([]byte(key)); nil != be {
+		err = be
+	} else {
+		pkcs := newPkcs5(sm4.BlockSize)
+		pad := pkcs.Pad([]byte(base64.StdEncoding.EncodeToString(raw)))
+		_encrypted := make([]byte, len(pad))
+		copy(_encrypted, pad)
+
+		cbc := cipher.NewCBCEncrypter(block, c.options.iv)
+		cbc.CryptBlocks(_encrypted, _encrypted)
+
+		encrypted = string(_encrypted)
+	}
+
+	return
+}
+
+//go:inline
+func (c *Client) privateKeyToHex() string {
+	return c.key.D.Text(16)
+}
+
+//go:inline
+func (c *Client) publicKeyToHex() string {
+	key := &c.key.PublicKey
 	x := key.X.Bytes()
 	y := key.Y.Bytes()
 	if n := len(x); n < 32 {
@@ -194,14 +233,40 @@ func (c *Client) keyToHex(key *ecdsa.PublicKey) string {
 		y = append(c.zeroByteSlice()[:32-n], y...)
 	}
 
-	var bytes []byte
-	bytes = append(bytes, x...)
-	bytes = append(bytes, y...)
-	bytes = append([]byte{0x04}, bytes...)
+	var data []byte
+	data = append(data, x...)
+	data = append(data, y...)
+	data = append([]byte{0x04}, data...)
 
-	return strings.ToUpper(hex.EncodeToString(bytes))
+	return strings.ToUpper(hex.EncodeToString(data))
 }
 
+func (c *Client) hexToPublicKey(_hex string) (key *ecdsa.PublicKey, err error) {
+	var q []byte
+	if q, err = hex.DecodeString(_hex); nil != err {
+		return
+	}
+
+	if len(q) == 65 && q[0] == byte(0x04) {
+		q = q[1:]
+	}
+
+	if 64 != len(q) {
+		err = exc.NewMessage(`公钥未被压缩`)
+	}
+	if nil != err {
+		return
+	}
+
+	key = new(ecdsa.PublicKey)
+	key.Curve = sm2.P256()
+	key.X = new(big.Int).SetBytes(q[:32])
+	key.Y = new(big.Int).SetBytes(q[32:])
+
+	return
+}
+
+//go:inline
 func (c *Client) zeroByteSlice() []byte {
 	return []byte{
 		0, 0, 0, 0,
