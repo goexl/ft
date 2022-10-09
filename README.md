@@ -11,8 +11,6 @@
 
 信易贷`52号文`相关接口Golang版本
 
-项目介绍
-
 ## 捐助
 
 ![支持宝](https://github.com/storezhang/donate/raw/master/alipay-small.jpg)
