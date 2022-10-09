@@ -111,7 +111,7 @@ func (c *Client) sign(data []byte) (sign string, err error) {
 //go:inline
 func (c *Client) unmarshal(raw []byte, _rsp any, _options *options) (err error) {
 	__rsp := new(rsp)
-	if err = json.Unmarshal(raw, __rsp); nil != err {
+	if err = json.Unmarshal(raw, __rsp); nil != err || `` == __rsp.Data {
 		return
 	}
 
