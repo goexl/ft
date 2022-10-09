@@ -5,11 +5,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/storezhang/cli/core"
-	"github.com/tjfoc/gmsm/sm3"
+	"github.com/emmansun/gmsm/sm3"
 )
 
-func (c *Client) Upload(license string, req *core.FtLicenseUploadReq, opts ...option) (rsp *core.FtLicenseUploadRsp, err error) {
+func (c *Client) Upload(license string, req *LicenseUploadReq, opts ...option) (rsp *LicenseUploadRsp, err error) {
 	if data, readErr := os.ReadFile(license); nil != readErr {
 		err = readErr
 	} else {
@@ -21,8 +20,8 @@ func (c *Client) Upload(license string, req *core.FtLicenseUploadReq, opts ...op
 		return
 	}
 
-	rsp = new(core.FtLicenseUploadRsp)
-	err = c.sendfile(`/api/creditInquiry/uploadLicense`, license, req, rsp)
+	rsp = new(LicenseUploadRsp)
+	err = c.sendfile(`/api/creditInquiry/uploadLicense`, license, req, rsp, opts...)
 
 	return
 }
