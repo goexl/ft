@@ -5,6 +5,8 @@ import (
 	"github.com/goexl/simaqian"
 )
 
+var _ = NewNewOptions
+
 type (
 	newOption interface {
 		applyNew(options *newOptions)
@@ -16,6 +18,11 @@ type (
 		iv     []byte
 	}
 )
+
+// NewNewOptions 创建选项
+func NewNewOptions(opts ...newOption) []newOption {
+	return opts
+}
 
 func defaultNewOptions() *newOptions {
 	return &newOptions{
