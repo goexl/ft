@@ -1,5 +1,7 @@
 package ft
 
+var _ = NewOptions
+
 type (
 	option interface {
 		apply(options *options)
@@ -13,6 +15,11 @@ type (
 		secret string
 	}
 )
+
+// NewOptions 创建选项
+func NewOptions(opts ...option) []option {
+	return opts
+}
 
 //go:inline
 func apply(opts ...option) (_options *options) {
