@@ -19,6 +19,7 @@ import (
 	"github.com/goexl/exc"
 	"github.com/goexl/gox"
 	"github.com/goexl/gox/field"
+	"github.com/goexl/xiren"
 )
 
 var _ = New
@@ -77,11 +78,15 @@ func (c *Client) sendfile(api string, file string, req any, rsp any, opts ...opt
 
 //go:inline
 func (c *Client) post(api string, req *resty.Request, rsp any, _options *options) (err error) {
-	if raw, reqErr := req.Post(fmt.Sprintf(`%s%s`, _options.addr, api)); nil != reqErr {
-		err = reqErr
-		c.options.logger.Error(`发送到省大数据中心出错`, field.String(`api`, api), field.Error(err))
+	if err = xiren.Struct(_options); nil != err {
+		return
+	}
+
+	if raw, pe := req.Post(fmt.Sprintf(`%s%s`, _options.addr, api)); nil != pe {
+		err = pe
+		c.options.logger.Error(`发送数据出错`, field.String(`api`, api), field.Error(err))
 	} else if raw.IsError() {
-		c.options.logger.Warn(`发送到省大数据中心出错`, field.String(`api`, api), field.String(`raw`, raw.String()))
+		c.options.logger.Warn(`返回错误`, field.String(`api`, api), field.String(`raw`, raw.String()))
 	} else {
 		err = c.unmarshal(raw.Body(), rsp, _options)
 	}

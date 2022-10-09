@@ -11,9 +11,9 @@ type (
 		addr string
 		iv   []byte
 
-		id     string
-		key    string
-		secret string
+		id     string `validate:"required"`
+		key    string `validate:"required"`
+		secret string `validate:"required"`
 	}
 )
 

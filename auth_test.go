@@ -24,9 +24,9 @@ func TestToken(t *testing.T) {
 	id := os.Getenv(`APP_ID`)
 	key := os.Getenv(`APP_KEY`)
 	secret := os.Getenv(`APP_SECRET`)
-	if _key, err := client.Token(ft.App(id, key, secret)); nil != err {
+	if token, err := client.Token(ft.App(id, key, secret)); nil != err {
 		t.Fail()
-	} else if `` == _key {
+	} else if `` == token {
 		t.Fail()
 	}
 }

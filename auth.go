@@ -65,10 +65,9 @@ func (c *Client) Token(opts ...option) (token string, err error) {
 		return
 	}
 
-	if bytes, je := json.Marshal(_req); nil != je {
-		err = je
-	} else {
-		_req.Data, err = c.cbcEncrypt(bytes, key, _options)
+	if bytes, me := json.Marshal(_req); nil != me {
+		err = me
+	} else if _req.Data, err = c.cbcEncrypt(bytes, key, _options); nil == err {
 		_req.Signature, err = c.sign(bytes)
 	}
 	if nil != err {
@@ -80,6 +79,7 @@ func (c *Client) Token(opts ...option) (token string, err error) {
 	hr.SetBody(_req)
 	if err = c.post(`/api/getToken`, hr, _rsp, _options); nil == err {
 		c.tokens[_options.id] = _rsp
+		token = _rsp.Token
 	}
 
 	return

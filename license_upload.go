@@ -19,7 +19,7 @@ type (
 		LoanStage string `json:"loanStage"`
 		// 文件类型
 		FileType string `json:"licenseFileType"`
-		// 电 子签章供应商
+		// 电子签章供应商
 		CaSupplier string `json:"caSupplier"`
 		// 验证地址
 		ValidateUrl string `json:"validateUrl"`
