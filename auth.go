@@ -31,7 +31,7 @@ func (c *Client) PublicKey(opts ...option) (key string, err error) {
 	_rsp := new(publicKeyRsp)
 	hr := c.options.http.R()
 	hr.SetBody(_req)
-	if err = c.post(`/api/publicKey`, hr, _rsp, _options); nil == err {
+	if err = c.post(`/api/publicKey`, hr, _rsp); nil == err {
 		c.keys[_options.id] = _rsp.Key
 		key = _rsp.Key
 	}
@@ -78,7 +78,7 @@ func (c *Client) Token(opts ...option) (token string, err error) {
 	_rsp := new(tokenRsp)
 	hr := c.options.http.R()
 	hr.SetBody(_req)
-	if err = c.post(`/api/getToken`, hr, _rsp, _options); nil == err {
+	if err = c.post(`/api/getToken`, hr, _rsp); nil == err {
 		c.tokens[_options.id] = _rsp
 	}
 

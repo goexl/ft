@@ -8,8 +8,6 @@ type (
 	}
 
 	options struct {
-		host string
-
 		id     string
 		key    string
 		secret string
@@ -32,7 +30,5 @@ func apply(opts ...option) (_options *options) {
 }
 
 func defaultOptions() *options {
-	return &options{
-		host: `https://202.61.91.57:8092`,
-	}
+	return &options{}
 }

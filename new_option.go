@@ -15,6 +15,7 @@ type (
 	newOptions struct {
 		http   *resty.Client
 		logger simaqian.Logger
+		addr   string
 		iv     []byte
 	}
 )
@@ -28,6 +29,7 @@ func defaultNewOptions() *newOptions {
 	return &newOptions{
 		http:   resty.New(),
 		logger: simaqian.Must(),
+		addr:   `https://202.61.91.57:8092`,
 		iv:     []byte(`UI8wC9fW6cFh9SOS`),
 	}
 }

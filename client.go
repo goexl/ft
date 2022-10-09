@@ -54,10 +54,9 @@ func New(opts ...newOption) (client *Client, err error) {
 }
 
 //go:inline
-func (c *Client) request(api string, _req any, rsp any, opts ...option) (err error) {
+func (c *Client) request(api string, _req any, rsp any) (err error) {
 	fr := new(req)
 	fr.PublicKey = c.hex
-	_options := apply(opts...)
 
 	// 加密请求
 	// var encrypted []byte
@@ -74,14 +73,13 @@ func (c *Client) request(api string, _req any, rsp any, opts ...option) (err err
 
 	hr := c.options.http.R()
 	hr.SetBody(fr)
-	err = c.post(api, hr, rsp, _options)
+	err = c.post(api, hr, rsp)
 
 	return
 }
 
 //go:inline
 func (c *Client) sendfile(api string, file string, req any, rsp any, opts ...option) (err error) {
-	_options := apply(opts...)
 	hr := c.options.http.R()
 	if form, fe := gox.StructToForm(req); nil != fe {
 		err = fe
@@ -97,14 +95,14 @@ func (c *Client) sendfile(api string, file string, req any, rsp any, opts ...opt
 	if `` != file {
 		hr.SetFile(`file`, file)
 	}
-	err = c.post(api, hr, rsp, _options)
+	err = c.post(api, hr, rsp)
 
 	return
 }
 
 //go:inline
-func (c *Client) post(api string, req *resty.Request, rsp any, _options *options) (err error) {
-	if raw, reqErr := req.Post(fmt.Sprintf(`%s%s`, _options.host, api)); nil != reqErr {
+func (c *Client) post(api string, req *resty.Request, rsp any) (err error) {
+	if raw, reqErr := req.Post(fmt.Sprintf(`%s%s`, c.options.addr, api)); nil != reqErr {
 		err = reqErr
 		c.options.logger.Error(`发送到省大数据中心出错`, field.String(`api`, api), field.Error(err))
 	} else if raw.IsError() {
