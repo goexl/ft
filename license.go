@@ -2,7 +2,7 @@ package ft
 
 import (
 	"encoding/hex"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/storezhang/cli/core"
@@ -10,7 +10,7 @@ import (
 )
 
 func (c *Client) Upload(license string, req *core.FtLicenseUploadReq, opts ...option) (rsp *core.FtLicenseUploadRsp, err error) {
-	if data, readErr := ioutil.ReadFile(license); nil != readErr {
+	if data, readErr := os.ReadFile(license); nil != readErr {
 		err = readErr
 	} else {
 		sm := sm3.New()

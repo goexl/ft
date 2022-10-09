@@ -25,8 +25,8 @@ var _ = New
 
 // Client 客户端
 type Client struct {
-	key       *sm2.PrivateKey
-	publicHex string
+	key *sm2.PrivateKey
+	hex string
 
 	options *newOptions
 	tokens  map[string]*tokenRsp
@@ -47,7 +47,7 @@ func New(opts ...newOption) (client *Client, err error) {
 	client.options.http.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 
 	if client.key, err = sm2.GenerateKey(rand.Reader); nil == err {
-		client.publicHex = client.publicKeyToHex()
+		client.hex = client.publicKeyToHex()
 	}
 
 	return
@@ -56,7 +56,7 @@ func New(opts ...newOption) (client *Client, err error) {
 //go:inline
 func (c *Client) request(api string, _req any, rsp any, opts ...option) (err error) {
 	fr := new(req)
-	fr.PublicKey = c.publicHex
+	fr.PublicKey = c.hex
 	_options := apply(opts...)
 
 	// 加密请求
@@ -83,11 +83,10 @@ func (c *Client) request(api string, _req any, rsp any, opts ...option) (err err
 func (c *Client) sendfile(api string, file string, req any, rsp any, opts ...option) (err error) {
 	_options := apply(opts...)
 	hr := c.options.http.R()
-	if form, formErr := gox.StructToForm(req); nil != formErr {
-		err = formErr
-	} else {
-		form[`publicKey`] = c.publicHex
-		form[`token`] = `eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJhcHBJZCI6IjE1Njk2MTMyMzE4ODQ4ODYwMTciLCJleHBpcmVzVGltZSI6MTY2NDYzMDY4Mzc5OX0.nDZDWLutKRpbNwq3ltCo4uFQ3V456fxnyeWry8cbre8`
+	if form, fe := gox.StructToForm(req); nil != fe {
+		err = fe
+	} else if form[`token`], err = c.Token(opts...); nil == err {
+		form[`publicKey`] = c.hex
 		hr.SetFormData(form)
 	}
 	if nil != err {
@@ -111,7 +110,7 @@ func (c *Client) post(api string, req *resty.Request, rsp any, _options *options
 	} else if raw.IsError() {
 		c.options.logger.Warn(`发送到省大数据中心出错`, field.String(`api`, api), field.String(`raw`, raw.String()))
 	} else {
-		err = c.decrypt(raw.Body(), rsp)
+		err = c.unmarshal(raw.Body(), rsp)
 	}
 
 	return
@@ -125,32 +124,24 @@ func (c *Client) sign(data []byte) (sign string, err error) {
 	if _sign, se := c.key.Sign(rand.Reader, hash, nil); nil != se {
 		err = se
 	} else {
-		sign = string(_sign)
+		sign = hex.EncodeToString(_sign)
 	}
 
 	return
 }
 
 //go:inline
-func (c *Client) decrypt(raw []byte, _rsp any) (err error) {
+func (c *Client) unmarshal(raw []byte, _rsp any) (err error) {
 	__rsp := new(rsp)
 	if err = json.Unmarshal(raw, __rsp); nil != err {
 		return
 	}
 
 	// 解密
-	var decryptedKey []byte
-	if keyBytes, ke := hex.DecodeString(__rsp.Key); nil != ke {
+	if key, ke := c.decryptKey(__rsp.Key); nil != ke {
 		err = ke
-	} else {
-		decryptedKey, err = c.key.Decrypt(rand.Reader, keyBytes, sm2.NewPlainDecrypterOpts(sm2.C1C2C3))
-	}
-	if nil != err {
-		return
-	}
-
-	if decrypted, ce := c.cbcDecrypt(__rsp.Data, decryptedKey); nil != ce {
-		err = ce
+	} else if decrypted, de := c.cbcDecrypt(__rsp.Data, key); nil != de {
+		err = de
 	} else {
 		err = json.Unmarshal(decrypted, _rsp)
 	}
@@ -159,16 +150,27 @@ func (c *Client) decrypt(raw []byte, _rsp any) (err error) {
 }
 
 //go:inline
-func (c *Client) encrypt(key string, data string) (encrypted string, err error) {
+func (c *Client) decryptKey(key string) (decrypted []byte, err error) {
+	if decoded, ke := hex.DecodeString(key); nil != ke {
+		err = ke
+	} else {
+		decrypted, err = c.key.Decrypt(rand.Reader, decoded, sm2.NewPlainDecrypterOpts(sm2.C1C2C3))
+	}
+
+	return
+}
+
+//go:inline
+func (c *Client) encryptKey(pk string, key string) (encrypted string, err error) {
 	var _encrypted []byte
-	if pk, pe := c.hexToPublicKey(key); nil != pe {
+	if _pk, pe := c.hexToPublicKey(pk); nil != pe {
 		err = pe
 	} else {
-		opts := sm2.NewPlainEncrypterOpts(sm2.MarshalUncompressed, sm2.C1C2C3)
-		_encrypted, err = sm2.Encrypt(rand.Reader, pk, []byte(data), opts)
+		opts := sm2.NewPlainEncrypterOpts(sm2.MarshalHybrid, sm2.C1C2C3)
+		_encrypted, err = sm2.Encrypt(rand.Reader, _pk, []byte(key), opts)
 	}
 	if nil == err {
-		encrypted = string(_encrypted)
+		encrypted = hex.EncodeToString(_encrypted)
 	}
 
 	return
@@ -203,14 +205,14 @@ func (c *Client) cbcEncrypt(raw []byte, key string) (encrypted string, err error
 		err = be
 	} else {
 		pkcs := newPkcs5(sm4.BlockSize)
-		pad := pkcs.Pad([]byte(base64.StdEncoding.EncodeToString(raw)))
+		pad := pkcs.Pad(raw)
 		_encrypted := make([]byte, len(pad))
 		copy(_encrypted, pad)
 
 		cbc := cipher.NewCBCEncrypter(block, c.options.iv)
 		cbc.CryptBlocks(_encrypted, _encrypted)
 
-		encrypted = string(_encrypted)
+		encrypted = base64.StdEncoding.EncodeToString(_encrypted)
 	}
 
 	return

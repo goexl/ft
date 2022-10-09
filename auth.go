@@ -2,7 +2,6 @@ package ft
 
 import (
 	"encoding/json"
-	"time"
 
 	"github.com/goexl/gox"
 )
@@ -18,7 +17,7 @@ func (c *Client) PublicKey(opts ...option) (key string, err error) {
 
 	_req := new(publicKeyReq)
 	_req.AppId = _options.id
-	_req.PublicKey = c.publicHex
+	_req.PublicKey = c.hex
 
 	if bytes, je := json.Marshal(_req); nil != je {
 		err = je
@@ -42,7 +41,7 @@ func (c *Client) PublicKey(opts ...option) (key string, err error) {
 
 func (c *Client) Token(opts ...option) (token string, err error) {
 	_options := apply(opts...)
-	if cached, ok := c.tokens[_options.id]; ok && cached.Expires.After(time.Now()) {
+	if cached, ok := c.tokens[_options.id]; ok && !cached.Expired() {
 		token = cached.Token
 	}
 	if `` != token {
@@ -53,14 +52,14 @@ func (c *Client) Token(opts ...option) (token string, err error) {
 	_req.AppId = _options.id
 	_req.AppKey = _options.key
 	_req.AppSecret = _options.secret
-	_req.PublicKey = c.publicHex
+	_req.PublicKey = c.hex
 
 	// 随机生成加密密钥
 	key := gox.RandString(16)
 	if pk, pe := c.PublicKey(opts...); nil != pe {
 		err = pe
 	} else {
-		_req.Key, err = c.encrypt(pk, key)
+		_req.Key, err = c.encryptKey(pk, key)
 	}
 	if nil != err {
 		return

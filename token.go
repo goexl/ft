@@ -26,6 +26,10 @@ type (
 		// 令牌
 		Token string `json:"token"`
 		// 过期时间
-		Expires time.Time `json:"expiresTime"`
+		Expires int64 `json:"expiresTime"`
 	}
 )
+
+func (tr *tokenRsp) Expired() bool {
+	return time.UnixMilli(tr.Expires).After(time.Now())
+}
