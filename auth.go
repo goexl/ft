@@ -31,7 +31,7 @@ func (c *Client) PublicKey(opts ...option) (key string, err error) {
 	_rsp := new(publicKeyRsp)
 	hr := c.options.http.R()
 	hr.SetBody(_req)
-	if err = c.post(`/api/publicKey`, hr, _rsp); nil == err {
+	if err = c.post(`/api/publicKey`, hr, _rsp, _options); nil == err {
 		c.keys[_options.id] = _rsp.Key
 		key = _rsp.Key
 	}
@@ -68,7 +68,7 @@ func (c *Client) Token(opts ...option) (token string, err error) {
 	if bytes, je := json.Marshal(_req); nil != je {
 		err = je
 	} else {
-		_req.Data, err = c.cbcEncrypt(bytes, key)
+		_req.Data, err = c.cbcEncrypt(bytes, key, _options)
 		_req.Signature, err = c.sign(bytes)
 	}
 	if nil != err {
@@ -78,7 +78,7 @@ func (c *Client) Token(opts ...option) (token string, err error) {
 	_rsp := new(tokenRsp)
 	hr := c.options.http.R()
 	hr.SetBody(_req)
-	if err = c.post(`/api/getToken`, hr, _rsp); nil == err {
+	if err = c.post(`/api/getToken`, hr, _rsp, _options); nil == err {
 		c.tokens[_options.id] = _rsp
 	}
 

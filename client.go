@@ -54,31 +54,6 @@ func New(opts ...newOption) (client *Client, err error) {
 }
 
 //go:inline
-func (c *Client) request(api string, _req any, rsp any) (err error) {
-	fr := new(req)
-	fr.PublicKey = c.hex
-
-	// 加密请求
-	// var encrypted []byte
-	if bytes, je := json.Marshal(_req); nil != je {
-		err = je
-	} else {
-		// so := sm2.NewPlainEncrypterOpts(sm2.MarshalUncompressed, sm2.C1C2C3)
-		// encrypted, err = sm2.Encrypt(rand.Reader, &c.key.PublicKey, bytes, so)
-		fr.Data = string(bytes)
-	}
-	if nil != err {
-		return
-	}
-
-	hr := c.options.http.R()
-	hr.SetBody(fr)
-	err = c.post(api, hr, rsp)
-
-	return
-}
-
-//go:inline
 func (c *Client) sendfile(api string, file string, req any, rsp any, opts ...option) (err error) {
 	hr := c.options.http.R()
 	if form, fe := gox.StructToForm(req); nil != fe {
@@ -95,20 +70,20 @@ func (c *Client) sendfile(api string, file string, req any, rsp any, opts ...opt
 	if `` != file {
 		hr.SetFile(`file`, file)
 	}
-	err = c.post(api, hr, rsp)
+	err = c.post(api, hr, rsp, apply(opts...))
 
 	return
 }
 
 //go:inline
-func (c *Client) post(api string, req *resty.Request, rsp any) (err error) {
-	if raw, reqErr := req.Post(fmt.Sprintf(`%s%s`, c.options.addr, api)); nil != reqErr {
+func (c *Client) post(api string, req *resty.Request, rsp any, _options *options) (err error) {
+	if raw, reqErr := req.Post(fmt.Sprintf(`%s%s`, _options.addr, api)); nil != reqErr {
 		err = reqErr
 		c.options.logger.Error(`发送到省大数据中心出错`, field.String(`api`, api), field.Error(err))
 	} else if raw.IsError() {
 		c.options.logger.Warn(`发送到省大数据中心出错`, field.String(`api`, api), field.String(`raw`, raw.String()))
 	} else {
-		err = c.unmarshal(raw.Body(), rsp)
+		err = c.unmarshal(raw.Body(), rsp, _options)
 	}
 
 	return
@@ -129,7 +104,7 @@ func (c *Client) sign(data []byte) (sign string, err error) {
 }
 
 //go:inline
-func (c *Client) unmarshal(raw []byte, _rsp any) (err error) {
+func (c *Client) unmarshal(raw []byte, _rsp any, _options *options) (err error) {
 	__rsp := new(rsp)
 	if err = json.Unmarshal(raw, __rsp); nil != err {
 		return
@@ -138,7 +113,7 @@ func (c *Client) unmarshal(raw []byte, _rsp any) (err error) {
 	// 解密
 	if key, ke := c.decryptKey(__rsp.Key); nil != ke {
 		err = ke
-	} else if decrypted, de := c.cbcDecrypt(__rsp.Data, key); nil != de {
+	} else if decrypted, de := c.cbcDecrypt(__rsp.Data, key, _options); nil != de {
 		err = de
 	} else {
 		err = json.Unmarshal(decrypted, _rsp)
@@ -175,7 +150,7 @@ func (c *Client) encryptKey(pk string, key string) (encrypted string, err error)
 }
 
 //go:inline
-func (c *Client) cbcDecrypt(raw string, key []byte) (decrypted []byte, err error) {
+func (c *Client) cbcDecrypt(raw string, key []byte, _options *options) (decrypted []byte, err error) {
 	var block cipher.Block
 	if decoded, de := base64.StdEncoding.DecodeString(raw); nil != de {
 		err = de
@@ -188,7 +163,7 @@ func (c *Client) cbcDecrypt(raw string, key []byte) (decrypted []byte, err error
 		return
 	}
 
-	cbc := cipher.NewCBCDecrypter(block, c.options.iv)
+	cbc := cipher.NewCBCDecrypter(block, _options.iv)
 	cbc.CryptBlocks(decrypted, decrypted)
 
 	pkcs := newPkcs5(sm4.BlockSize)
@@ -198,7 +173,7 @@ func (c *Client) cbcDecrypt(raw string, key []byte) (decrypted []byte, err error
 }
 
 //go:inline
-func (c *Client) cbcEncrypt(raw []byte, key string) (encrypted string, err error) {
+func (c *Client) cbcEncrypt(raw []byte, key string, _options *options) (encrypted string, err error) {
 	if block, be := sm4.NewCipher([]byte(key)); nil != be {
 		err = be
 	} else {
@@ -207,7 +182,7 @@ func (c *Client) cbcEncrypt(raw []byte, key string) (encrypted string, err error
 		_encrypted := make([]byte, len(pad))
 		copy(_encrypted, pad)
 
-		cbc := cipher.NewCBCEncrypter(block, c.options.iv)
+		cbc := cipher.NewCBCEncrypter(block, _options.iv)
 		cbc.CryptBlocks(_encrypted, _encrypted)
 
 		encrypted = base64.StdEncoding.EncodeToString(_encrypted)

@@ -1,8 +1,8 @@
 package ft
 
 var (
-	_           = Iv
-	_ newOption = (*optionIv)(nil)
+	_        = Iv
+	_ option = (*optionIv)(nil)
 )
 
 type optionIv struct {
@@ -16,6 +16,6 @@ func Iv(iv string) *optionIv {
 	}
 }
 
-func (i *optionIv) applyNew(options *newOptions) {
+func (i *optionIv) apply(options *options) {
 	options.iv = []byte(i.iv)
 }

@@ -1,8 +1,8 @@
 package ft
 
 var (
-	_           = Addr
-	_ newOption = (*optionAddr)(nil)
+	_        = Addr
+	_ option = (*optionAddr)(nil)
 )
 
 type optionAddr struct {
@@ -16,6 +16,6 @@ func Addr(addr string) *optionAddr {
 	}
 }
 
-func (a *optionAddr) applyNew(options *newOptions) {
+func (a *optionAddr) apply(options *options) {
 	options.addr = a.addr
 }
