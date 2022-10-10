@@ -1,7 +1,7 @@
 package ft
 
-// EnterpriseReq 企业信息上传请求
-type EnterpriseReq struct {
+// EnterpriseUploadReq 企业信息上传请求
+type EnterpriseUploadReq struct {
 	// 地方平台编码
 	PlatformId int64 `json:"platformId"`
 	// 统一社会信用代码
