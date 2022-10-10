@@ -1,5 +1,5 @@
 package ft
 
-func (c *Client) Enterprise(req *EnterpriseReq, opts ...option) (rsp *LicenseUploadRsp, err error) {
-	return
+func (c *Client) Enterprise(req *EnterpriseReq, opts ...option) error {
+	return c.request(getPublicKeyApi, req, new(empty), opts...)
 }

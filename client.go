@@ -158,19 +158,19 @@ func (c *Client) sign(data []byte) (sign string, err error) {
 }
 
 //go:inline
-func (c *Client) unmarshal(raw []byte, _rsp any, _options *options) (err error) {
-	__rsp := new(response)
-	if err = json.Unmarshal(raw, __rsp); nil != err || `` == __rsp.Data {
+func (c *Client) unmarshal(raw []byte, rsp any, _options *options) (err error) {
+	_rsp := new(response)
+	if err = json.Unmarshal(raw, _rsp); nil != err || `` == _rsp.Data {
 		return
 	}
 
 	// 解密
-	if key, ke := c.decryptKey(__rsp.Key); nil != ke {
+	if key, ke := c.decryptKey(_rsp.Key); nil != ke {
 		err = ke
-	} else if decrypted, de := c.cbcDecrypt(__rsp.Data, key, _options); nil != de {
+	} else if decrypted, de := c.cbcDecrypt(_rsp.Data, key, _options); nil != de {
 		err = de
 	} else {
-		err = json.Unmarshal(decrypted, _rsp)
+		err = json.Unmarshal(decrypted, rsp)
 	}
 
 	return
