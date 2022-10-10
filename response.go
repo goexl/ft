@@ -1,6 +1,6 @@
 package ft
 
-type rsp struct {
+type response struct {
 	// 授权码
 	Key string `json:"key"`
 	// 签名数据

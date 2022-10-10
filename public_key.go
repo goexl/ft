@@ -3,8 +3,6 @@ package ft
 type (
 	// 52号文公钥请求
 	publicKeyReq struct {
-		baseReq
-
 		// 应用编号
 		AppId string `json:"appId"`
 	}

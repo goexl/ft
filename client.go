@@ -54,6 +54,35 @@ func New(opts ...newOption) (client *Client, err error) {
 	return
 }
 
+func (c *Client) request(api string, req any, rsp any, opts ...option) (err error) {
+	_options := apply(opts...)
+	_req := new(request)
+	_req.PublicKey = c.hex
+
+	// 注入令牌
+	if getTokenApi != api && getPublicKeyApi != api {
+		_req.Token, err = c.Token(opts...)
+	}
+	if nil != err {
+		return
+	}
+
+	// 注入公钥
+	if data, je := json.Marshal(req); nil != je {
+		err = je
+	} else if getPublicKeyApi != api {
+		err = c.auth(_req, data, _options, opts...)
+	} else {
+		_req.Data = string(data)
+	}
+
+	hr := c.options.http.R()
+	hr.SetBody(_req)
+	err = c.post(api, hr, rsp, _options)
+
+	return
+}
+
 //go:inline
 func (c *Client) sendfile(api string, file string, req any, rsp any, opts ...option) (err error) {
 	hr := c.options.http.R()
@@ -95,6 +124,26 @@ func (c *Client) post(api string, req *resty.Request, rsp any, _options *options
 }
 
 //go:inline
+func (c *Client) auth(req *request, data []byte, _options *options, opts ...option) (err error) {
+	// 随机生成加密密钥
+	key := gox.RandString(16)
+	if pk, pe := c.PublicKey(opts...); nil != pe {
+		err = pe
+	} else {
+		req.Key, err = c.encryptKey(pk, key)
+	}
+	if nil != err {
+		return
+	}
+
+	if req.Data, err = c.cbcEncrypt(data, key, _options); nil == err {
+		req.Signature, err = c.sign(data)
+	}
+
+	return
+}
+
+//go:inline
 func (c *Client) sign(data []byte) (sign string, err error) {
 	sm := sm3.New()
 	sm.Write(data)
@@ -110,7 +159,7 @@ func (c *Client) sign(data []byte) (sign string, err error) {
 
 //go:inline
 func (c *Client) unmarshal(raw []byte, _rsp any, _options *options) (err error) {
-	__rsp := new(rsp)
+	__rsp := new(response)
 	if err = json.Unmarshal(raw, __rsp); nil != err || `` == __rsp.Data {
 		return
 	}
