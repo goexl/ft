@@ -9,8 +9,8 @@ import (
 )
 
 func (c *Client) Upload(license string, req *LicenseUploadReq, opts ...option) (rsp *LicenseUploadRsp, err error) {
-	if data, readErr := os.ReadFile(license); nil != readErr {
-		err = readErr
+	if data, re := os.ReadFile(license); nil != re {
+		err = re
 	} else {
 		sm := sm3.New()
 		sm.Write(data)
