@@ -169,6 +169,10 @@ func (c *Client) unmarshal(raw []byte, rsp any, _options *options) (err error) {
 		err = ke
 	} else if decrypted, de := c.cbcDecrypt(_rsp.Data, key, _options); nil != de {
 		err = de
+	} else if 130 == len(decrypted) {
+		// 处理四川站返回的公钥不是JSON格式的问题
+		decrypted = []byte(fmt.Sprintf(`{"publicKey": "%s"}`, decrypted))
+		err = json.Unmarshal(decrypted, rsp)
 	} else {
 		err = json.Unmarshal(decrypted, rsp)
 	}
