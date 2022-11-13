@@ -111,11 +111,16 @@ func (c *Client) post(api string, req *resty.Request, rsp any, _options *options
 		return
 	}
 
+	fields := gox.Fields{
+		field.String(`api`, api),
+	}
 	if raw, pe := req.Post(fmt.Sprintf(`%s%s`, _options.addr, api)); nil != pe {
 		err = pe
-		c.options.logger.Error(`发送数据出错`, field.String(`api`, api), field.Error(err))
+		c.options.logger.Error(`发送数据出错`, fields.Connect(field.Error(err))...)
 	} else if raw.IsError() {
-		c.options.logger.Warn(`返回错误`, field.String(`api`, api), field.String(`raw`, raw.String()))
+		code := field.Int("code", raw.StatusCode())
+		raw := field.String(`raw`, raw.String())
+		err = exc.NewFields("大数据中心返回错误", fields.Connect(code).Connect(raw)...)
 	} else {
 		err = c.unmarshal(raw.Body(), rsp, _options)
 	}
