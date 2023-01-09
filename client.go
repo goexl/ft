@@ -19,6 +19,7 @@ import (
 	"github.com/goexl/exc"
 	"github.com/goexl/gox"
 	"github.com/goexl/gox/field"
+	"github.com/goexl/structer"
 	"github.com/goexl/xiren"
 )
 
@@ -86,10 +87,11 @@ func (c *Client) request(api string, req any, rsp any, opts ...option) (err erro
 //go:inline
 func (c *Client) sendfile(api string, file string, req any, rsp any, opts ...option) (err error) {
 	hr := c.options.http.R()
-	if form, fe := gox.StructToForm(req); nil != fe {
+	form := make(map[string]string)
+	if fe := structer.New().Map().From(req).To(form).Convert(); nil != fe {
 		err = fe
-	} else if form[`token`], err = c.Token(opts...); nil == err {
-		form[`publicKey`] = c.hex
+	} else if form["token"], err = c.Token(opts...); nil == err {
+		form["publicKey"] = c.hex
 		hr.SetFormData(form)
 	}
 	if nil != err {
@@ -97,8 +99,8 @@ func (c *Client) sendfile(api string, file string, req any, rsp any, opts ...opt
 	}
 
 	// 设置上传文件路径
-	if `` != file {
-		hr.SetFile(`file`, file)
+	if "" != file {
+		hr.SetFile("file", file)
 	}
 	err = c.post(api, hr, rsp, apply(opts...))
 
@@ -111,38 +113,18 @@ func (c *Client) post(api string, req *resty.Request, rsp any, _options *options
 		return
 	}
 
-	fields := gox.Fields{
-		field.String(`api`, api),
+	fields := gox.Fields[any]{
+		field.New("api", api),
 	}
-	if hr, pe := req.Post(fmt.Sprintf(`%s%s`, _options.addr, api)); nil != pe {
+	if hr, pe := req.Post(fmt.Sprintf("%s%s", _options.addr, api)); nil != pe {
 		err = pe
-		c.options.logger.Error(`发送数据出错`, fields.Connect(field.Error(err))...)
+		c.options.logger.Error("发送数据出错", fields.Connect(field.Error(err))...)
 	} else if hr.IsError() {
-		code := field.Int("code", hr.StatusCode())
-		raw := field.String(`raw`, hr.String())
+		code := field.New("code", hr.StatusCode())
+		raw := field.New("raw", hr.String())
 		err = exc.NewFields("大数据中心返回错误", fields.Connect(code).Connect(raw)...)
 	} else {
 		err = c.unmarshal(hr.Body(), rsp, _options)
-	}
-
-	return
-}
-
-//go:inline
-func (c *Client) auth(req *request, data []byte, _options *options, opts ...option) (err error) {
-	// 随机生成加密密钥
-	key := gox.RandString(16)
-	if pk, pe := c.PublicKey(opts...); nil != pe {
-		err = pe
-	} else {
-		req.Key, err = c.encryptKey(pk, key)
-	}
-	if nil != err {
-		return
-	}
-
-	if req.Data, err = c.cbcEncrypt(data, key, _options); nil == err {
-		req.Signature, err = c.sign(data)
 	}
 
 	return
@@ -165,7 +147,7 @@ func (c *Client) sign(data []byte) (sign string, err error) {
 //go:inline
 func (c *Client) unmarshal(raw []byte, rsp any, _options *options) (err error) {
 	_rsp := new(response)
-	if err = json.Unmarshal(raw, _rsp); nil != err || `` == _rsp.Data {
+	if err = json.Unmarshal(raw, _rsp); nil != err || "" == _rsp.Data {
 		return
 	}
 
@@ -290,7 +272,7 @@ func (c *Client) hexToPublicKey(_hex string) (key *ecdsa.PublicKey, err error) {
 	}
 
 	if 64 != len(q) {
-		err = exc.NewMessage(`公钥未被压缩`)
+		err = exc.NewMessage("公钥未被压缩")
 	}
 	if nil != err {
 		return
