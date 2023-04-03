@@ -7,7 +7,7 @@ require (
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/goexl/exc v0.0.5
 	github.com/goexl/gox v0.1.6
-	github.com/goexl/simaqian v0.2.4
+	github.com/goexl/simaqian v0.2.5
 	github.com/goexl/structer v0.0.1
 	github.com/goexl/xiren v0.0.5
 )
