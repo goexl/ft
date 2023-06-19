@@ -3,7 +3,7 @@ module github.com/goexl/ft
 go 1.18
 
 require (
-	github.com/emmansun/gmsm v0.17.3
+	github.com/emmansun/gmsm v0.17.4
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/goexl/exc v0.0.5
 	github.com/goexl/gox v0.1.6
@@ -25,6 +25,6 @@ require (
 	go.uber.org/zap v1.24.0 // indirect
 	golang.org/x/crypto v0.9.0 // indirect
 	golang.org/x/net v0.10.0 // indirect
-	golang.org/x/sys v0.8.0 // indirect
+	golang.org/x/sys v0.9.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
 )
