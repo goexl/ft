@@ -3,7 +3,7 @@ module github.com/goexl/ft
 go 1.18
 
 require (
-	github.com/emmansun/gmsm v0.21.4
+	github.com/emmansun/gmsm v0.21.5
 	github.com/go-resty/resty/v2 v2.10.0
 	github.com/goexl/exc v0.0.5
 	github.com/goexl/gox v0.1.6
