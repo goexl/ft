@@ -1,8 +1,6 @@
 module github.com/goexl/ft
 
-go 1.24.0
-
-toolchain go1.24.1
+go 1.25
 
 require (
 	github.com/emmansun/gmsm v0.40.0
@@ -10,7 +8,7 @@ require (
 	github.com/goexl/exc v0.0.5
 	github.com/goexl/gox v1.9.2
 	github.com/goexl/simaqian v0.4.0
-	github.com/goexl/structer v0.0.3
+	github.com/goexl/structer v0.2.0
 	github.com/goexl/xiren v0.0.9
 )
 
